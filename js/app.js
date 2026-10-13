@@ -60,6 +60,7 @@ function eintragKarte(eintrag, { ort = true, einsortieren = false } = {}) {
         ${ort ? `<span class="ort">${esc(ordnerPfadText(eintrag.ordnerId))}</span>` : ''}
         ${eintrag.von ? `<span>von ${esc(eintrag.von)}</span>` : ''}
         <span>${datumText(eintrag.erstellt)}</span>
+        ${eintrag.tag ? `<span title="aus dem Tagebuch">📖 ${esc(kurzesDatum(eintrag.tag))}</span>` : ''}
       </p>
       ${einsortieren ? `<button class="knopf" data-aktion="verschieben" data-id="${esc(eintrag.id)}">Einsortieren</button>` : ''}
     </article>`;
@@ -338,6 +339,10 @@ function zeigeEintrag(id) {
     <div><a class="ort-chip" href="#/ordner/${esc(eintrag.ordnerId)}">${esc(ordnerPfadText(eintrag.ordnerId))}</a></div>
     ${eintrag.titel ? `<header class="kopf"><h1>${esc(eintrag.titel)}</h1></header>` : ''}
     <p class="volltext">${esc(eintrag.text)}</p>
+    ${eintrag.tag ? `
+      <a class="quelle" href="#/tagebuch/${esc(eintrag.tag)}">
+        📖 Aus dem Tagebuch vom ${esc(wochentag(eintrag.tag))}, ${esc(kurzesDatum(eintrag.tag))} <span class="pfeil">›</span>
+      </a>` : ''}
     <p class="meta">
       ${eintrag.von ? `<span>von ${esc(eintrag.von)}</span>` : ''}
       <span>erstellt ${datumText(eintrag.erstellt, true)}</span>
@@ -517,6 +522,7 @@ const editor = {
   ordnerName: document.getElementById('editor-ordner-name'),
   eintragId: null,      // null = neuer Eintrag
   ordnerId: EINGANG_ID,
+  tag: null,            // gesetzt, wenn die Notiz aus einem Tagebuch-Tag entsteht
 };
 
 function editorWerte() {
@@ -528,10 +534,13 @@ function editorWerte() {
   };
 }
 
-function editorOeffnen(eintrag = null) {
+// eintrag: vorhandene Notiz bearbeiten. vorgabe: neue Notiz mit vorausgefüllten Werten
+// (z. B. { text, tag } beim Übernehmen aus dem Tagebuch).
+function editorOeffnen(eintrag = null, vorgabe = null) {
   editor.eintragId = eintrag ? eintrag.id : null;
+  editor.tag = vorgabe ? vorgabe.tag : null;
 
-  let werte = eintrag;
+  let werte = eintrag || (vorgabe && { titel: '', von: '', ordnerId: EINGANG_ID, ...vorgabe });
   if (!werte) {
     // Angefangener, nicht gespeicherter Text? Dann den wiederherstellen.
     try { werte = JSON.parse(localStorage.getItem(ENTWURF_SCHLUESSEL)); } catch { werte = null; }
@@ -547,7 +556,7 @@ function editorOeffnen(eintrag = null) {
   editor.titel.value = werte.titel;
   editor.von.value = werte.von;
   editor.ordnerId = ordnerMitId(werte.ordnerId) ? werte.ordnerId : EINGANG_ID;
-  editor.ueberschrift.textContent = eintrag ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
+  editor.ueberschrift.textContent = eintrag ? 'Eintrag bearbeiten' : vorgabe ? 'Notiz aus dem Tagebuch' : 'Neuer Eintrag';
   editorOrdnerAnzeigen();
   namenVorschlagen();
 
@@ -559,7 +568,8 @@ function editorOeffnen(eintrag = null) {
 function editorSchliessen() {
   editor.blatt.hidden = true;
   document.body.classList.remove('blatt-offen');
-  localStorage.removeItem(ENTWURF_SCHLUESSEL);
+  // Nur der Entwurf einer normalen neuen Notiz gehört zu diesem Fenster.
+  if (!editor.eintragId && !editor.tag) localStorage.removeItem(ENTWURF_SCHLUESSEL);
 }
 
 function editorOrdnerAnzeigen() {
@@ -580,7 +590,7 @@ function namenVorschlagen() {
 // Bei jeder Eingabe den Entwurf sichern – so geht nichts verloren,
 // auch wenn das iPhone die App zwischendurch schließt.
 function entwurfSichern() {
-  if (editor.eintragId) return;
+  if (editor.eintragId || editor.tag) return;   // Text steht ja schon in der Notiz bzw. im Tagebuch
   localStorage.setItem(ENTWURF_SCHLUESSEL, JSON.stringify(editorWerte()));
 }
 
@@ -626,7 +636,7 @@ const aktionen = {
       eintragAendern(editor.eintragId, werte);
       toast('Änderungen gespeichert');
     } else {
-      eintragAnlegen(werte);
+      eintragAnlegen({ ...werte, tag: editor.tag });
       dauerhaftSpeichernAnfragen();
       toast('Gespeichert in „' + ordnerMitId(werte.ordnerId).name + '“');
     }

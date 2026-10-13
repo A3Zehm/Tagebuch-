@@ -215,7 +215,8 @@ function eintragTitel(eintrag) {
   return titel.length < eintrag.text.trim().length ? titel + ' …' : titel;
 }
 
-function eintragAnlegen({ text, titel = '', ordnerId = EINGANG_ID, von = '' }) {
+// tag (optional): Datum des Tagebuch-Tages, aus dem die Notiz stammt
+function eintragAnlegen({ text, titel = '', ordnerId = EINGANG_ID, von = '', tag = null }) {
   const jetzt = new Date().toISOString();
   const eintrag = {
     id: neueId(),
@@ -227,6 +228,7 @@ function eintragAnlegen({ text, titel = '', ordnerId = EINGANG_ID, von = '' }) {
     erstellt: jetzt,
     geaendert: jetzt,
   };
+  if (tag) eintrag.tag = tag;
   daten.eintraege.push(eintrag);
   speichern();
   return eintrag;

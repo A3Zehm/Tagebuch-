@@ -76,15 +76,24 @@ function zeigeTagebuch(schluessel) {
                 title="${s.name}" aria-label="${s.name}" style="--farbe:${s.farbe}">${s.emoji}</button>`).join('')}
     </div>
 
+    <div class="takeaway-leiste">
+      <button class="knopf" data-aktion="notiz-aus-markierung">✂ Markierung als Notiz</button>
+    </div>
     <textarea id="tag-text" class="feld tag-text"
       placeholder="Was habt ihr gemacht? Wo habt ihr gemessen? Wie ging es dir – und warum?">${esc(text)}</textarea>
     <div class="tag-fuss">
       <span id="speicher-status" class="leise klein">${tag ? 'Gespeichert ✓' : ''}</span>
-    </div>`;
+    </div>
+    ${notizenAbschnitt(schluessel)}`;
 
   const feld = document.getElementById('tag-text');
+  letzteMarkierung = null;
+  for (const art of ['select', 'keyup', 'mouseup', 'touchend']) {
+    feld.addEventListener(art, markierungMerken);
+  }
   hoeheAnpassen(feld);
   feld.addEventListener('input', () => {
+    letzteMarkierung = null;   // Text geändert → alte Markierung passt nicht mehr
     hoeheAnpassen(feld);
     document.getElementById('speicher-status').textContent = '…';
     clearTimeout(speicherTimer);
@@ -94,6 +103,42 @@ function zeigeTagebuch(schluessel) {
 
   // Ist heute noch nichts geschrieben, gleich losschreiben können.
   if (istHeute && !text) feld.focus();
+}
+
+// Die Notizen, die aus diesem Tag entstanden sind ("Key Takeaways").
+function notizenAbschnitt(schluessel) {
+  const notizen = notizenAusTag(schluessel);
+  if (!notizen.length) return '';
+  return `
+    <h2 class="abschnitt">Notizen aus diesem Tag</h2>
+    ${eintragListe(notizen)}`;
+}
+
+// ---------- Markierung als Notiz ----------
+// Auf dem iPhone verliert das Textfeld beim Tippen auf den Knopf den Fokus.
+// Deshalb merken wir uns die Markierung schon vorher bei jeder Änderung.
+
+let letzteMarkierung = null;
+
+function markierungMerken() {
+  const feld = document.getElementById('tag-text');
+  if (feld && feld.selectionEnd > feld.selectionStart) {
+    letzteMarkierung = { start: feld.selectionStart, ende: feld.selectionEnd };
+  }
+}
+
+document.addEventListener('selectionchange', () => {
+  if (document.activeElement && document.activeElement.id === 'tag-text') markierungMerken();
+});
+
+function markierterText() {
+  const feld = document.getElementById('tag-text');
+  if (!feld) return '';
+  if (feld.selectionEnd > feld.selectionStart) {
+    return feld.value.slice(feld.selectionStart, feld.selectionEnd).trim();
+  }
+  if (letzteMarkierung) return feld.value.slice(letzteMarkierung.start, letzteMarkierung.ende).trim();
+  return '';
 }
 
 // Textfeld wächst mit dem Text mit, statt einen eigenen Scrollbalken zu bekommen.
@@ -264,6 +309,20 @@ const tagebuchAktionen = {
     if (knopf.disabled) return;
     tagebuchSofortSpeichern();
     ersetze('#/tagebuch/' + knopf.dataset.tag);
+  },
+
+  'notiz-aus-markierung'() {
+    const text = markierterText();
+    if (!text) {
+      dialog({
+        titel: 'Erst Text markieren',
+        text: 'Markiere im Tagebuch den Teil, den du als Notiz behalten willst: Wort lange drücken, dann die Markierung mit den Anfassern ziehen. Danach hier tippen.',
+        knoepfe: [{ text: 'OK', wert: null, art: 'haupt' }],
+      });
+      return;
+    }
+    tagebuchSofortSpeichern();
+    editorOeffnen(null, { text, tag: offenerTag });
   },
 
   stimmung(knopf) {

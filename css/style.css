@@ -587,3 +587,26 @@ summary.monat { margin-left: 8px; font-weight: 700; }
 .tag-nr strong { font-size: 20px; }
 .tag-vorschau { flex: 1; font-size: 15px; overflow-wrap: anywhere; }
 .tag-stimmung { font-size: 24px; }
+
+/* Knopf "Markierung als Notiz" bleibt beim Scrollen durch langen Text oben sichtbar */
+.takeaway-leiste {
+  position: sticky;
+  top: calc(var(--oben-sicher) + 6px);
+  z-index: 5;
+  margin-bottom: 8px;
+}
+.takeaway-leiste .knopf { width: 100%; background: var(--flaeche); box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
+
+.quelle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  margin-top: 12px;
+  padding: 0 16px;
+  border: 1px solid var(--rand);
+  border-radius: var(--radius);
+  background: var(--flaeche);
+  color: var(--akzent);
+}
+.quelle .pfeil { margin-left: auto; font-size: 22px; color: var(--text-leise); }
