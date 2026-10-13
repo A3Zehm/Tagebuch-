@@ -9,8 +9,10 @@
 
 const SPEICHER_SCHLUESSEL = 'ausbildungstagebuch';
 const RETTUNG_SCHLUESSEL = 'ausbildungstagebuch-rettung';
+const VOR_IMPORT_SCHLUESSEL = 'ausbildungstagebuch-vor-import';
 const EINGANG_ID = 'eingang';
 const DATEN_VERSION = 1;
+const BACKUP_ERINNERUNG_TAGE = 14;
 
 let daten = laden();
 
@@ -296,6 +298,67 @@ function suchen(anfrage) {
 
   treffer.sort((a, b) => b.punkte - a.punkte || neuesteZuerst(a.eintrag, b.eintrag));
   return { ordner, eintraege: treffer.map(t => t.eintrag) };
+}
+
+// ---------- Backup ----------
+
+function backupDateiinhalt() {
+  return JSON.stringify({
+    app: 'ausbildungstagebuch',
+    version: DATEN_VERSION,
+    exportiert: new Date().toISOString(),
+    ordner: daten.ordner,
+    eintraege: daten.eintraege,
+  }, null, 2);
+}
+
+function backupErledigt() {
+  daten.letztesBackup = new Date().toISOString();
+  speichern();
+}
+
+function tageSeitBackup() {
+  const seit = daten.letztesBackup || daten.erstellt;
+  return Math.floor((Date.now() - new Date(seit).getTime()) / 86400000);
+}
+
+function backupFaellig() {
+  return daten.eintraege.length > 0 && tageSeitBackup() >= BACKUP_ERINNERUNG_TAGE;
+}
+
+// Prüft den Inhalt einer Backup-Datei; wirft einen verständlichen Fehler, wenn etwas nicht stimmt.
+function backupLesen(text) {
+  let inhalt;
+  try {
+    inhalt = JSON.parse(text);
+  } catch {
+    throw new Error('Die Datei konnte nicht gelesen werden.');
+  }
+  if (!inhalt || inhalt.app !== 'ausbildungstagebuch' || !Array.isArray(inhalt.ordner) || !Array.isArray(inhalt.eintraege)) {
+    throw new Error('Diese Datei ist kein Backup des Ausbildungs-Tagebuchs.');
+  }
+  return inhalt;
+}
+
+// Ersetzt alle Ordner und Einträge durch die aus dem Backup.
+// Der bisherige Stand wird vorher zur Sicherheit im Browser beiseitegelegt.
+function backupEinspielen(inhalt) {
+  localStorage.setItem(VOR_IMPORT_SCHLUESSEL, JSON.stringify(daten));
+  daten.ordner = inhalt.ordner;
+  daten.eintraege = inhalt.eintraege;
+  daten.letztesBackup = inhalt.exportiert || new Date().toISOString();
+  if (!ordnerMitId(EINGANG_ID)) daten.ordner.unshift({ id: EINGANG_ID, name: 'Eingang', elternId: null });
+  for (const e of daten.eintraege) {
+    if (!ordnerMitId(e.ordnerId)) e.ordnerId = EINGANG_ID;
+  }
+  speichern();
+}
+
+// ---------- Sonstiges ----------
+
+function themaSetzen(thema) {
+  daten.thema = thema;
+  speichern();
 }
 
 // Bereits benutzte Kollegen-Namen, die häufigsten zuerst.

@@ -7,7 +7,9 @@ const inhalt = document.getElementById('inhalt');
 const ENTWURF_SCHLUESSEL = 'ausbildungstagebuch-entwurf';
 
 const ICON_ORDNER = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>';
-const ICON_MEHR = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>';
+const ICON_SONNE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const ICON_MOND = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
+const ICON_MEHR ='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>';
 
 // ---------- Hilfsfunktionen ----------
 
@@ -210,6 +212,7 @@ function zeige() {
     eintrag: zeigeEintrag,
     wichtig: zeigeWichtig,
     suche: zeigeSuche,
+    einstellungen: zeigeEinstellungen,
   };
   (ansichten[route.name] || zeigeStart)(route.id);
   gezeigteAdresse = location.hash;
@@ -233,8 +236,15 @@ function zeigeStart() {
   const wichtig = daten.eintraege.filter(e => e.wichtig).length;
   const neueste = neuesteEintraege(10);
 
+  const hell = daten.thema === 'hell';
+
   inhalt.innerHTML = `
-    <header class="kopf"><h1>Ausbildungs-Tagebuch</h1></header>
+    <header class="kopf">
+      <h1>Ausbildungs-Tagebuch</h1>
+      <button class="knopf rund" data-aktion="thema" data-thema="${hell ? 'dunkel' : 'hell'}"
+              aria-label="${hell ? 'Dunkles Design' : 'Helles Design'}">${hell ? ICON_MOND : ICON_SONNE}</button>
+    </header>
+    ${backupHinweis()}
     <div class="kacheln">
       <a class="kachel ${unsortiert ? 'markiert' : ''}" href="#/ordner/${EINGANG_ID}">
         <span class="zahl">${unsortiert}</span>
@@ -368,6 +378,111 @@ function trefferZeigen() {
     ${ordner.length ? `<h2 class="abschnitt">Ordner</h2><div>${ordner.map(ordnerZeile).join('')}</div>` : ''}
     <h2 class="abschnitt">${eintraege.length} ${eintraege.length === 1 ? 'Eintrag' : 'Einträge'}</h2>
     ${eintraege.length ? eintragListe(eintraege) : '<p class="leer">Nichts gefunden.</p>'}`;
+}
+
+function zeigeEinstellungen() {
+  const hell = daten.thema === 'hell';
+  const tage = tageSeitBackup();
+  const backupStand = daten.letztesBackup
+    ? `Letztes Backup: <strong>${datumText(daten.letztesBackup, true)}</strong>${tage > 0 ? ` (vor ${tage} ${tage === 1 ? 'Tag' : 'Tagen'})` : ''}`
+    : '<strong>Noch kein Backup erstellt.</strong>';
+  const anzahlWichtig = wichtigeEintraege().length;
+
+  inhalt.innerHTML = `
+    <header class="kopf"><h1>Mehr</h1></header>
+
+    <h2 class="abschnitt">Darstellung</h2>
+    <div class="umschalter">
+      <button data-aktion="thema" data-thema="dunkel" class="${hell ? '' : 'aktiv'}">Dunkel</button>
+      <button data-aktion="thema" data-thema="hell" class="${hell ? 'aktiv' : ''}">Hell</button>
+    </div>
+    <p class="leise klein">Hell ist bei direkter Sonne oft besser lesbar.</p>
+
+    <h2 class="abschnitt">Backup</h2>
+    <div class="gruppe">
+      <p>${backupStand}</p>
+      <p class="leise klein">Deine Einträge liegen nur auf diesem Gerät. Sichere sie regelmäßig, vor allem vor einem Handywechsel.
+        Auf dem iPhone wählst du im Teilen-Menü „In Dateien sichern“ (am besten in iCloud Drive) oder schickst die Datei per Mail an dich.</p>
+      <button class="knopf haupt gross" data-aktion="exportieren">Backup erstellen</button>
+      <label class="knopf gross">Backup einspielen<input type="file" id="import-datei" hidden></label>
+    </div>
+
+    <h2 class="abschnitt">Übersicht</h2>
+    <div class="gruppe">
+      <p>${daten.eintraege.length} Einträge in ${daten.ordner.length} Ordnern, davon ${anzahlWichtig} als wichtig markiert.</p>
+    </div>`;
+
+  document.getElementById('import-datei').addEventListener('change', backupImportieren);
+}
+
+// Dezenter Hinweis auf der Startseite, wenn das letzte Backup über zwei Wochen her ist.
+function backupHinweis() {
+  if (!backupFaellig()) return '';
+  const text = daten.letztesBackup
+    ? `Dein letztes Backup ist ${tageSeitBackup()} Tage her.`
+    : 'Du hast noch kein Backup erstellt.';
+  return `<div class="banner"><span>${text}</span><a class="knopf text stark" href="#/einstellungen">Sichern</a></div>`;
+}
+
+async function backupExportieren() {
+  const heute = new Date().toISOString().slice(0, 10);
+  const dateiname = `tagebuch-backup-${heute}.json`;
+  const datei = new File([backupDateiinhalt()], dateiname, { type: 'application/json' });
+
+  if (navigator.canShare && navigator.canShare({ files: [datei] })) {
+    // iPhone: Teilen-Menü öffnen (In Dateien sichern, Mail, AirDrop …)
+    try {
+      await navigator.share({ files: [datei] });
+    } catch (fehler) {
+      if (fehler.name === 'AbortError') return;   // im Teilen-Menü abgebrochen
+      return toast('Teilen nicht möglich: ' + fehler.message);
+    }
+  } else {
+    // PC: ganz normal herunterladen
+    const adresse = URL.createObjectURL(datei);
+    const link = document.createElement('a');
+    link.href = adresse;
+    link.download = dateiname;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(adresse), 1000);
+  }
+  backupErledigt();
+  toast('Backup erstellt');
+  zeige();
+}
+
+async function backupImportieren(ereignis) {
+  const datei = ereignis.target.files[0];
+  ereignis.target.value = '';   // damit dieselbe Datei erneut gewählt werden kann
+  if (!datei) return;
+
+  let inhalt;
+  try {
+    inhalt = backupLesen(await datei.text());
+  } catch (fehler) {
+    await dialog({ titel: 'Import nicht möglich', text: fehler.message, knoepfe: [{ text: 'OK', wert: null }] });
+    return;
+  }
+
+  const vom = inhalt.exportiert ? ` vom ${datumText(inhalt.exportiert, true)}` : '';
+  const ok = await bestaetigen(
+    `Backup${vom} einspielen?`,
+    `Es enthält ${inhalt.eintraege.length} Einträge und ${inhalt.ordner.length} Ordner. ` +
+    `Alles, was jetzt in der App ist (${daten.eintraege.length} Einträge), wird dadurch ersetzt.`,
+    'Einspielen', true);
+  if (!ok) return;
+
+  backupEinspielen(inhalt);
+  toast('Backup eingespielt');
+  ersetze('#/');
+}
+
+function themaAnwenden() {
+  const hell = daten.thema === 'hell';
+  document.documentElement.dataset.thema = hell ? 'hell' : 'dunkel';
+  document.querySelector('meta[name="theme-color"]').content = hell ? '#f2f3f5' : '#0f1216';
 }
 
 // ---------- Eingabe (Editor) ----------
@@ -521,6 +636,16 @@ const aktionen = {
     zurueck();
   },
 
+  thema(knopf) {
+    themaSetzen(knopf.dataset.thema);
+    themaAnwenden();
+    zeige();
+  },
+
+  exportieren() {
+    backupExportieren();
+  },
+
   wichtig(knopf) {
     const istWichtig = wichtigUmschalten(knopf.dataset.id);
     toast(istWichtig ? 'Als wichtig markiert' : 'Markierung entfernt');
@@ -653,4 +778,5 @@ document.addEventListener('click', ereignis => {
 
 // ---------- Start ----------
 
+themaAnwenden();
 zeige();
