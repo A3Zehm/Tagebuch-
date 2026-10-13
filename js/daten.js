@@ -177,3 +177,24 @@ function eintragAnlegen({ text, titel = '', ordnerId = EINGANG_ID, von = '' }) {
   speichern();
   return eintrag;
 }
+
+// Ändert nur die übergebenen Felder, z. B. eintragAendern(id, { ordnerId: 'abc' }).
+function eintragAendern(id, felder) {
+  const eintrag = eintragMitId(id);
+  if (!eintrag) return;
+  for (const [feld, wert] of Object.entries(felder)) {
+    eintrag[feld] = typeof wert === 'string' ? wert.trim() : wert;
+  }
+  if (!ordnerMitId(eintrag.ordnerId)) eintrag.ordnerId = EINGANG_ID;
+  eintrag.geaendert = new Date().toISOString();
+  speichern();
+}
+
+// Bereits benutzte Kollegen-Namen, die häufigsten zuerst.
+function vonNamen() {
+  const anzahl = new Map();
+  for (const e of daten.eintraege) {
+    if (e.von) anzahl.set(e.von, (anzahl.get(e.von) || 0) + 1);
+  }
+  return [...anzahl.keys()].sort((a, b) => anzahl.get(b) - anzahl.get(a) || a.localeCompare(b, 'de'));
+}

@@ -372,6 +372,9 @@ textarea.feld { resize: vertical; line-height: 1.5; }
   border-bottom: 1px solid var(--rand);
 }
 .blatt-kopf h2 { flex: 1; margin: 0; font-size: 17px; text-align: center; }
+.blatt-kopf .platzhalter { width: 100px; }
+.blatt.auswahl { z-index: 35; }
+.blatt-inhalt.liste-ohne-abstand { gap: 0; padding-top: 4px; }
 
 .blatt-inhalt {
   flex: 1;
@@ -454,7 +457,9 @@ textarea.feld { resize: vertical; line-height: 1.5; }
   left: 50%;
   bottom: calc(var(--leiste-hoehe) + var(--unten-sicher) + 100px);
   z-index: 50;
+  width: max-content;
   max-width: calc(100% - 32px);
+  text-align: center;
   padding: 12px 18px;
   border-radius: 12px;
   background: var(--text);
