@@ -1,0 +1,3 @@
+# Backups gehören nicht ins Projekt (enthalten deine persönlichen Einträge)
+*backup*.json
+.claude/
