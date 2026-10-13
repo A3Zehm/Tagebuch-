@@ -121,9 +121,89 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') tagebuchSofortSpeichern();
 });
 
+// ---------- Kalender ----------
+//   #/kalender/2026-10  → Monat
+//   #/kalender/2026     → Jahr mit 12 Monaten (zum schnellen Wechseln)
+
+const MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+
+function zeigeKalender(wert) {
+  if (/^\d{4}$/.test(wert || '')) return zeigeKalenderJahr(Number(wert));
+
+  const heute = heuteSchluessel();
+  const [jahr, monat] = /^\d{4}-\d{2}$/.test(wert || '') ? wert.split('-').map(Number) : heute.split('-').map(Number);
+  const monatText = `${jahr}-${String(monat).padStart(2, '0')}`;
+  const vorMonat = new Date(jahr, monat - 2, 1);
+  const nachMonat = new Date(jahr, monat, 1);
+
+  const ersterWochentag = (new Date(jahr, monat - 1, 1).getDay() + 6) % 7;   // Montag = 0
+  const tageImMonat = new Date(jahr, monat, 0).getDate();
+
+  let zellen = '<span class="leer-zelle"></span>'.repeat(ersterWochentag);
+  for (let t = 1; t <= tageImMonat; t++) {
+    const schluessel = `${monatText}-${String(t).padStart(2, '0')}`;
+    const tag = tagebuchTag(schluessel);
+    const st = tag && stimmung(tag.stimmung);
+    zellen += `
+      <a class="kal-tag ${schluessel === heute ? 'heute' : ''} ${tag ? 'hat-eintrag' : ''}" href="#/tagebuch/${schluessel}"
+         ${st ? `style="--farbe:${st.farbe}"` : ''} aria-label="${t}. ${MONATE[monat - 1]}${tag ? ', mit Eintrag' : ''}">
+        <span>${t}</span>${tag ? `<i class="punkt">${st ? st.emoji : ''}</i>` : ''}
+      </a>`;
+  }
+
+  const anzahl = tagebuchTage().filter(s => s.startsWith(monatText)).length;
+
+  inhalt.innerHTML = `
+    <button class="zurueck" data-aktion="zurueck">‹ Zurück</button>
+    <header class="tag-kopf">
+      <button class="knopf rund" data-aktion="kalender-wechseln" data-ziel="${datumSchluessel(vorMonat).slice(0, 7)}" aria-label="Vorheriger Monat">‹</button>
+      <a class="tag-datum" href="#/kalender/${jahr}">
+        <strong>${MONATE[monat - 1]} ▾</strong><span>${jahr}</span>
+      </a>
+      <button class="knopf rund" data-aktion="kalender-wechseln" data-ziel="${datumSchluessel(nachMonat).slice(0, 7)}" aria-label="Nächster Monat">›</button>
+    </header>
+    <div class="kalender">
+      ${['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(w => `<span class="wochentag">${w}</span>`).join('')}
+      ${zellen}
+    </div>
+    <p class="leise klein">${anzahl === 1 ? '1 Tag' : anzahl + ' Tage'} mit Eintrag in diesem Monat.</p>
+    <div class="tag-werkzeuge zwei">
+      <button class="knopf" data-aktion="kalender-wechseln" data-ziel="${heute.slice(0, 7)}">Dieser Monat</button>
+      <a class="knopf" href="#/tagebuchliste">Liste</a>
+    </div>`;
+}
+
+function zeigeKalenderJahr(jahr) {
+  const tage = tagebuchTage();
+  const jetzt = heuteSchluessel().slice(0, 7);
+  const monate = MONATE.map((name, i) => {
+    const monatText = `${jahr}-${String(i + 1).padStart(2, '0')}`;
+    const anzahl = tage.filter(s => s.startsWith(monatText)).length;
+    return `
+      <a class="monat-kachel ${monatText === jetzt ? 'heute' : ''} ${anzahl ? 'hat-eintrag' : ''}" href="#/kalender/${monatText}">
+        <strong>${name.slice(0, 3)}</strong><span>${anzahl ? anzahl + (anzahl === 1 ? ' Tag' : ' Tage') : '–'}</span>
+      </a>`;
+  }).join('');
+
+  inhalt.innerHTML = `
+    <button class="zurueck" data-aktion="zurueck">‹ Zurück</button>
+    <header class="tag-kopf">
+      <button class="knopf rund" data-aktion="kalender-wechseln" data-ziel="${jahr - 1}" aria-label="Vorheriges Jahr">‹</button>
+      <div class="tag-datum"><strong>${jahr}</strong><span>Monat wählen</span></div>
+      <button class="knopf rund" data-aktion="kalender-wechseln" data-ziel="${jahr + 1}" aria-label="Nächstes Jahr">›</button>
+    </header>
+    <div class="monate">${monate}</div>`;
+}
+
 // ---------- Aktionen ----------
 
 const tagebuchAktionen = {
+  // Monat bzw. Jahr wechseln, ohne den Verlauf vollzumüllen
+  'kalender-wechseln'(knopf) {
+    ersetze('#/kalender/' + knopf.dataset.ziel);
+  },
+
   'tag-wechseln'(knopf) {
     if (knopf.disabled) return;
     tagebuchSofortSpeichern();

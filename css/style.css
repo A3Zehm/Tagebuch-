@@ -515,3 +515,48 @@ textarea.feld { resize: vertical; line-height: 1.5; }
 
 .tag-fuss { display: flex; align-items: center; gap: 12px; min-height: 28px; margin-top: 6px; }
 .tag-fuss span { flex: 1; }
+
+.tag-werkzeuge.zwei { grid-template-columns: 1fr 1fr; margin-top: 14px; }
+
+.kalender { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 10px; }
+.wochentag { padding: 4px 0; text-align: center; font-size: 13px; color: var(--text-leise); }
+.kal-tag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  aspect-ratio: 1 / 1.15;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--flaeche);
+  font-size: 16px;
+}
+.kal-tag.hat-eintrag { border: 2px solid var(--farbe, var(--akzent)); background: var(--flaeche-2); font-weight: 700; }
+.kal-tag.heute { outline: 2px solid var(--akzent); outline-offset: 1px; }
+.kal-tag.heute span { color: var(--akzent); font-weight: 800; }
+.kal-tag .punkt { font-style: normal; font-size: 13px; line-height: 1; }
+.kal-tag .punkt:empty::before {
+  content: '';
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--akzent);
+}
+
+.monate { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.monat-kachel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 6px;
+  border: 1px solid var(--rand);
+  border-radius: var(--radius);
+  background: var(--flaeche);
+}
+.monat-kachel span { font-size: 13px; color: var(--text-leise); }
+.monat-kachel.hat-eintrag { border-color: var(--akzent); }
+.monat-kachel.hat-eintrag span { color: var(--akzent); }
+.monat-kachel.heute { outline: 2px solid var(--akzent); outline-offset: 1px; }

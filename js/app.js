@@ -218,6 +218,7 @@ function zeige() {
     eintrag: zeigeEintrag,
     wichtig: zeigeWichtig,
     tagebuch: zeigeTagebuch,
+    kalender: zeigeKalender,
     suche: zeigeSuche,
     einstellungen: zeigeEinstellungen,
   };
