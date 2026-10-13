@@ -412,7 +412,8 @@ function zeigeEinstellungen() {
 
     <h2 class="abschnitt">Übersicht</h2>
     <div class="gruppe">
-      <p>${daten.eintraege.length} Einträge in ${daten.ordner.length} Ordnern, davon ${anzahlWichtig} als wichtig markiert.</p>
+      <p>${daten.eintraege.length} Notizen in ${daten.ordner.length} Ordnern, davon ${anzahlWichtig} als wichtig markiert.</p>
+      <p>${anzahlTagebuchTage()} Tage im Tagebuch.</p>
     </div>`;
 
   document.getElementById('import-datei').addEventListener('change', backupImportieren);
@@ -472,8 +473,9 @@ async function backupImportieren(ereignis) {
   const vom = inhalt.exportiert ? ` vom ${datumText(inhalt.exportiert, true)}` : '';
   const ok = await bestaetigen(
     `Backup${vom} einspielen?`,
-    `Es enthält ${inhalt.eintraege.length} Einträge und ${inhalt.ordner.length} Ordner. ` +
-    `Alles, was jetzt in der App ist (${daten.eintraege.length} Einträge), wird dadurch ersetzt.`,
+    `Es enthält ${inhalt.eintraege.length} Notizen, ${inhalt.ordner.length} Ordner und ` +
+    `${Object.keys(inhalt.tage).length} Tagebuch-Tage. Alles, was jetzt in der App ist ` +
+    `(${daten.eintraege.length} Notizen, ${anzahlTagebuchTage()} Tagebuch-Tage), wird dadurch ersetzt.`,
     'Einspielen', true);
   if (!ok) return;
 

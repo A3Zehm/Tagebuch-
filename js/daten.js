@@ -4,14 +4,16 @@
 // {
 //   version, erstellt, letztesBackup, thema,
 //   ordner:    [{ id, name, elternId }]          elternId = null → oberste Ebene
-//   eintraege: [{ id, text, titel, ordnerId, von, wichtig, erstellt, geaendert }]
+//   eintraege: [{ id, text, titel, ordnerId, von, wichtig, erstellt, geaendert, tag? }]
+//              tag = Datum des Tagebuch-Tages, aus dem die Notiz entstanden ist (optional)
+//   tage:      { "2026-10-13": { text, stimmung, erstellt, geaendert } }   ← das Tagebuch
 // }
 
 const SPEICHER_SCHLUESSEL = 'ausbildungstagebuch';
 const RETTUNG_SCHLUESSEL = 'ausbildungstagebuch-rettung';
 const VOR_IMPORT_SCHLUESSEL = 'ausbildungstagebuch-vor-import';
 const EINGANG_ID = 'eingang';
-const DATEN_VERSION = 1;
+const DATEN_VERSION = 2;
 const BACKUP_ERINNERUNG_TAGE = 14;
 
 let daten = laden();
@@ -30,14 +32,22 @@ function leereDaten() {
     thema: 'dunkel',
     ordner: startOrdner(),
     eintraege: [],
+    tage: {},
   };
+}
+
+// Ältere Daten auf den neuesten Stand bringen. Hier wird nur ERGÄNZT, nie etwas entfernt.
+function datenAktualisieren(alt) {
+  if (!alt.tage || typeof alt.tage !== 'object') alt.tage = {};   // Version 1 → 2: Tagebuch dazu
+  alt.version = DATEN_VERSION;
+  return alt;
 }
 
 function laden() {
   const roh = localStorage.getItem(SPEICHER_SCHLUESSEL);
   if (roh) {
     try {
-      return JSON.parse(roh);
+      return datenAktualisieren(JSON.parse(roh));
     } catch (fehler) {
       // Beschädigte Daten nicht überschreiben, sondern zur Rettung beiseitelegen.
       localStorage.setItem(RETTUNG_SCHLUESSEL, roh);
@@ -309,6 +319,7 @@ function backupDateiinhalt() {
     exportiert: new Date().toISOString(),
     ordner: daten.ordner,
     eintraege: daten.eintraege,
+    tage: daten.tage,
   }, null, 2);
 }
 
@@ -323,7 +334,8 @@ function tageSeitBackup() {
 }
 
 function backupFaellig() {
-  return daten.eintraege.length > 0 && tageSeitBackup() >= BACKUP_ERINNERUNG_TAGE;
+  const etwasDa = daten.eintraege.length > 0 || anzahlTagebuchTage() > 0;
+  return etwasDa && tageSeitBackup() >= BACKUP_ERINNERUNG_TAGE;
 }
 
 // Prüft den Inhalt einer Backup-Datei; wirft einen verständlichen Fehler, wenn etwas nicht stimmt.
@@ -337,21 +349,82 @@ function backupLesen(text) {
   if (!inhalt || inhalt.app !== 'ausbildungstagebuch' || !Array.isArray(inhalt.ordner) || !Array.isArray(inhalt.eintraege)) {
     throw new Error('Diese Datei ist kein Backup des Ausbildungs-Tagebuchs.');
   }
+  // Backups von vor dem Tagebuch haben noch keine "tage" – dann ist das Tagebuch darin eben leer.
+  if (!inhalt.tage || typeof inhalt.tage !== 'object' || Array.isArray(inhalt.tage)) inhalt.tage = {};
   return inhalt;
 }
 
-// Ersetzt alle Ordner und Einträge durch die aus dem Backup.
+// Ersetzt alle Ordner, Einträge und Tagebuch-Tage durch die aus dem Backup.
 // Der bisherige Stand wird vorher zur Sicherheit im Browser beiseitegelegt.
 function backupEinspielen(inhalt) {
   localStorage.setItem(VOR_IMPORT_SCHLUESSEL, JSON.stringify(daten));
   daten.ordner = inhalt.ordner;
   daten.eintraege = inhalt.eintraege;
+  daten.tage = inhalt.tage;
   daten.letztesBackup = inhalt.exportiert || new Date().toISOString();
   if (!ordnerMitId(EINGANG_ID)) daten.ordner.unshift({ id: EINGANG_ID, name: 'Eingang', elternId: null });
   for (const e of daten.eintraege) {
     if (!ordnerMitId(e.ordnerId)) e.ordnerId = EINGANG_ID;
   }
   speichern();
+}
+
+// ---------- Tagebuch ----------
+// Jeder Tag steht unter seinem Datum als Text, z. B. "2026-10-13".
+// Jahr, Monat und Tag ergeben sich daraus automatisch – Ordner braucht es dafür nicht.
+
+function datumSchluessel(datum) {
+  const monat = String(datum.getMonth() + 1).padStart(2, '0');
+  const tag = String(datum.getDate()).padStart(2, '0');
+  return `${datum.getFullYear()}-${monat}-${tag}`;
+}
+
+function heuteSchluessel() {
+  return datumSchluessel(new Date());
+}
+
+function schluesselZuDatum(schluessel) {
+  const [jahr, monat, tag] = schluessel.split('-').map(Number);
+  return new Date(jahr, monat - 1, tag);
+}
+
+function istGueltigerTag(schluessel) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(schluessel || '') && !isNaN(schluesselZuDatum(schluessel));
+}
+
+// tagVerschieben("2026-10-13", -1) → "2026-10-12"
+function tagVerschieben(schluessel, anzahlTage) {
+  const datum = schluesselZuDatum(schluessel);
+  datum.setDate(datum.getDate() + anzahlTage);
+  return datumSchluessel(datum);
+}
+
+function tagebuchTag(schluessel) {
+  return daten.tage[schluessel] || null;
+}
+
+// Speichert Text und/oder Stimmung eines Tages, z. B. tagebuchSpeichern(tag, { stimmung: 4 }).
+// Ist danach weder Text noch Stimmung übrig, wird der Tag entfernt.
+function tagebuchSpeichern(schluessel, felder) {
+  const jetzt = new Date().toISOString();
+  const tag = { text: '', stimmung: null, erstellt: jetzt, ...daten.tage[schluessel], ...felder, geaendert: jetzt };
+  if (!tag.text.trim() && !tag.stimmung) delete daten.tage[schluessel];
+  else daten.tage[schluessel] = tag;
+  speichern();
+}
+
+// Alle Tage mit Eintrag, neueste zuerst.
+function tagebuchTage() {
+  return Object.keys(daten.tage).sort().reverse();
+}
+
+function anzahlTagebuchTage() {
+  return Object.keys(daten.tage || {}).length;
+}
+
+// Notizen, die aus diesem Tagebuch-Tag entstanden sind.
+function notizenAusTag(schluessel) {
+  return daten.eintraege.filter(e => e.tag === schluessel).sort(neuesteZuerst);
 }
 
 // ---------- Sonstiges ----------
