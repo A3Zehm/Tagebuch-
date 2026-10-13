@@ -248,6 +248,56 @@ function wichtigeEintraege() {
   return daten.eintraege.filter(e => e.wichtig).sort(neuesteZuerst);
 }
 
+// ---------- Suche ----------
+
+// Kleinschreibung, ä→a, ö→o, ü→u, ß→ss – so findet "gebaude" auch "Gebäude".
+function normalisieren(text) {
+  return (text || '').toLowerCase().replace(/ß/g, 'ss').normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+function passt(feld, begriff) {
+  if (begriff.length > 3) return feld.includes(begriff);
+  // Kurze Begriffe wie "AM" oder "GAB" nur am Wortanfang suchen,
+  // sonst findet "am" jedes "Name" und "gab" jede "Abgabe".
+  const sicher = begriff.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp('(^|[^a-z0-9])' + sicher).test(feld);
+}
+
+// Jeder Suchbegriff muss irgendwo vorkommen: im Titel, Ordnerpfad, Kollegen-Namen oder Text.
+// Treffer im Titel oder Ordner zählen mehr und stehen deshalb weiter oben.
+function suchen(anfrage) {
+  const begriffe = normalisieren(anfrage).split(/\s+/).filter(Boolean);
+  if (!begriffe.length) return { ordner: [], eintraege: [] };
+
+  const ordner = daten.ordner.filter(o => begriffe.every(b => passt(normalisieren(o.name), b)));
+
+  const pfade = new Map(daten.ordner.map(o => [o.id, normalisieren(ordnerPfadText(o.id))]));
+  const gewichte = { titel: 3, ordner: 3, von: 2, text: 1 };
+  const treffer = [];
+
+  for (const eintrag of daten.eintraege) {
+    const felder = {
+      titel: normalisieren(eintrag.titel),
+      ordner: pfade.get(eintrag.ordnerId) || '',
+      von: normalisieren(eintrag.von),
+      text: normalisieren(eintrag.text),
+    };
+    let punkte = 0;
+    const allesGefunden = begriffe.every(begriff => {
+      let bester = 0;
+      for (const [feld, gewicht] of Object.entries(gewichte)) {
+        if (gewicht > bester && passt(felder[feld], begriff)) bester = gewicht;
+      }
+      punkte += bester;
+      return bester > 0;
+    });
+    if (allesGefunden) treffer.push({ eintrag, punkte });
+  }
+
+  treffer.sort((a, b) => b.punkte - a.punkte || neuesteZuerst(a.eintrag, b.eintrag));
+  return { ordner, eintraege: treffer.map(t => t.eintrag) };
+}
+
 // Bereits benutzte Kollegen-Namen, die häufigsten zuerst.
 function vonNamen() {
   const anzahl = new Map();

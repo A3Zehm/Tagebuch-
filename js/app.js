@@ -209,6 +209,7 @@ function zeige() {
     ordner: zeigeOrdner,
     eintrag: zeigeEintrag,
     wichtig: zeigeWichtig,
+    suche: zeigeSuche,
   };
   (ansichten[route.name] || zeigeStart)(route.id);
   gezeigteAdresse = location.hash;
@@ -331,6 +332,42 @@ function zeigeWichtig() {
     ${eintraege.length
       ? eintragListe(eintraege)
       : '<p class="leer">Noch nichts markiert.<br>Öffne einen Eintrag und tippe auf <strong>☆ Wichtig</strong>.</p>'}`;
+}
+
+let letzteSuche = '';   // bleibt erhalten, wenn man aus einem Treffer zurückkommt
+
+function zeigeSuche() {
+  inhalt.innerHTML = `
+    <header class="kopf"><h1>Suche</h1></header>
+    <div class="suchfeld">
+      <input id="suchfeld" class="feld" type="search" value="${esc(letzteSuche)}"
+             placeholder="z. B. GAB, Prisma, Müller …" autocomplete="off" enterkeyhint="search">
+    </div>
+    <div id="treffer"></div>`;
+
+  const feld = document.getElementById('suchfeld');
+  feld.addEventListener('input', () => {
+    letzteSuche = feld.value;
+    trefferZeigen();
+  });
+  feld.addEventListener('keydown', ereignis => {
+    if (ereignis.key === 'Enter') feld.blur();   // Tastatur schließen, Treffer bleiben
+  });
+  if (!letzteSuche) feld.focus();
+  trefferZeigen();
+}
+
+function trefferZeigen() {
+  const ziel = document.getElementById('treffer');
+  if (!letzteSuche.trim()) {
+    ziel.innerHTML = '<p class="leise">Durchsucht Titel, Text, Kollegen und Ordnernamen – auch Kürzel wie „GAB“ oder „AM“.</p>';
+    return;
+  }
+  const { ordner, eintraege } = suchen(letzteSuche);
+  ziel.innerHTML = `
+    ${ordner.length ? `<h2 class="abschnitt">Ordner</h2><div>${ordner.map(ordnerZeile).join('')}</div>` : ''}
+    <h2 class="abschnitt">${eintraege.length} ${eintraege.length === 1 ? 'Eintrag' : 'Einträge'}</h2>
+    ${eintraege.length ? eintragListe(eintraege) : '<p class="leer">Nichts gefunden.</p>'}`;
 }
 
 // ---------- Eingabe (Editor) ----------
