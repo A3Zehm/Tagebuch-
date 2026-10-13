@@ -196,6 +196,62 @@ function zeigeKalenderJahr(jahr) {
     <div class="monate">${monate}</div>`;
 }
 
+// ---------- Liste: Jahr › Monat › Tage ----------
+//   #/tagebuchliste
+
+function zeigeTagebuchListe() {
+  const tage = tagebuchTage();   // neueste zuerst
+  const jetzt = heuteSchluessel();
+
+  // gruppieren: Jahr → Monat → Tage. Eine Map behält die Reihenfolge (neueste zuerst) bei;
+  // ein normales Objekt würde Zahlen-Schlüssel wie "2025" von selbst aufsteigend sortieren.
+  const jahre = new Map();
+  for (const s of tage) {
+    const [jahr, monat] = s.split('-');
+    if (!jahre.has(jahr)) jahre.set(jahr, new Map());
+    const monate = jahre.get(jahr);
+    if (!monate.has(monat)) monate.set(monat, []);
+    monate.get(monat).push(s);
+  }
+
+  // Aufgeklappt sind das aktuelle Jahr und der Monat mit dem neuesten Eintrag.
+  const html = [...jahre].map(([jahr, monate]) => {
+    const anzahlJahr = [...monate.values()].reduce((summe, liste) => summe + liste.length, 0);
+    return `
+      <details class="gruppe-auf" ${jahr === jetzt.slice(0, 4) || jahr === tage[0].slice(0, 4) ? 'open' : ''}>
+        <summary class="jahr"><span>${jahr}</span><span class="zahl">${anzahlJahr}</span></summary>
+        ${[...monate].map(([monat, liste]) => `
+          <details class="gruppe-auf" ${`${jahr}-${monat}` === tage[0].slice(0, 7) ? 'open' : ''}>
+            <summary class="monat"><span>${MONATE[Number(monat) - 1]}</span><span class="zahl">${liste.length}</span></summary>
+            <div class="liste">${liste.map(tagZeile).join('')}</div>
+          </details>`).join('')}
+      </details>`;
+  }).join('');
+
+  inhalt.innerHTML = `
+    <button class="zurueck" data-aktion="zurueck">‹ Zurück</button>
+    <header class="kopf"><h1>Tagebuch</h1></header>
+    ${tage.length
+      ? html
+      : '<p class="leer">Noch keine Tagebuch-Einträge.<br>Tippe unten auf <strong>Tagebuch</strong>, um mit heute zu beginnen.</p>'}`;
+}
+
+// Eine Zeile pro Tag: Wochentag + Datum, Stimmung, erste Worte
+function tagZeile(schluessel) {
+  const tag = tagebuchTag(schluessel);
+  const st = stimmung(tag.stimmung);
+  const datum = schluesselZuDatum(schluessel);
+  return `
+    <a class="eintrag tag-zeile" href="#/tagebuch/${schluessel}">
+      <span class="tag-nr">
+        <small>${datum.toLocaleDateString('de-DE', { weekday: 'short' })}</small>
+        <strong>${datum.getDate()}.</strong>
+      </span>
+      <span class="tag-vorschau">${esc(tagVorschau(tag)) || '<em class="leise">nur Stimmung</em>'}</span>
+      ${st ? `<span class="tag-stimmung" title="${st.name}">${st.emoji}</span>` : ''}
+    </a>`;
+}
+
 // ---------- Aktionen ----------
 
 const tagebuchAktionen = {

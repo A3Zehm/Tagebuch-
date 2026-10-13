@@ -560,3 +560,30 @@ textarea.feld { resize: vertical; line-height: 1.5; }
 .monat-kachel.hat-eintrag { border-color: var(--akzent); }
 .monat-kachel.hat-eintrag span { color: var(--akzent); }
 .monat-kachel.heute { outline: 2px solid var(--akzent); outline-offset: 1px; }
+
+.gruppe-auf { margin-bottom: 8px; }
+.gruppe-auf summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 14px;
+  border-radius: var(--radius);
+  list-style: none;
+  cursor: pointer;
+}
+.gruppe-auf summary::-webkit-details-marker { display: none; }
+.gruppe-auf summary::before { content: '›'; color: var(--text-leise); font-size: 22px; transition: transform .15s; }
+.gruppe-auf[open] > summary::before { transform: rotate(90deg); }
+.gruppe-auf summary span:first-of-type { flex: 1; }
+.gruppe-auf summary .zahl { padding: 2px 10px; border-radius: 99px; background: var(--flaeche-2); font-size: 14px; font-weight: 600; }
+summary.jahr { background: var(--flaeche); border: 1px solid var(--rand); font-size: 20px; font-weight: 800; }
+summary.monat { margin-left: 8px; font-weight: 700; }
+.gruppe-auf .liste { margin: 4px 0 12px 8px; }
+
+.tag-zeile { display: flex; align-items: center; gap: 14px; }
+.tag-nr { display: flex; flex-direction: column; align-items: center; min-width: 38px; line-height: 1.1; }
+.tag-nr small { color: var(--text-leise); font-size: 12px; text-transform: uppercase; }
+.tag-nr strong { font-size: 20px; }
+.tag-vorschau { flex: 1; font-size: 15px; overflow-wrap: anywhere; }
+.tag-stimmung { font-size: 24px; }
