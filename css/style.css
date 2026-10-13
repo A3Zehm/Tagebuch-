@@ -85,6 +85,9 @@ h2.abschnitt {
 }
 
 .leise { color: var(--text-leise); }
+.klein { font-size: 14px; }
+.klein svg { width: 18px; height: 18px; vertical-align: middle; }
+.abstand-oben { margin-top: 16px; }
 
 .leer {
   padding: 28px 16px;

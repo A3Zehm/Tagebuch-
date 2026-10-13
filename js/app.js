@@ -186,6 +186,13 @@ function gehe(adresse) {
   window.scrollTo(0, 0);
 }
 
+// Wie gehe(), aber ohne neuen Verlaufseintrag (z. B. wenn die alte Ansicht gelöscht wurde).
+function ersetze(adresse) {
+  history.replaceState(null, '', adresse);
+  zeige();
+  window.scrollTo(0, 0);
+}
+
 function zurueck() {
   if (history.length > 1) history.back();
   else gehe('#/');
@@ -275,7 +282,9 @@ function zeigeOrdner(id) {
 function zeigeOrdnerUebersicht() {
   inhalt.innerHTML = `
     <header class="kopf"><h1>Ordner</h1></header>
-    <div>${unterordner(null).map(ordnerZeile).join('')}</div>`;
+    <div>${unterordner(null).map(ordnerZeile).join('')}</div>
+    <button class="knopf gross abstand-oben" data-aktion="ordner-neu">+ Neuer Ordner</button>
+    <p class="leise klein">Unterordner legst du im jeweiligen Ordner über den Knopf ${ICON_MEHR} oben rechts an.</p>`;
 }
 
 // ---------- Eingabe (Editor) ----------
@@ -424,7 +433,102 @@ const aktionen = {
     toast('Verschoben nach „' + ordnerMitId(ziel).name + '“');
     zeige();
   },
+
+  async 'ordner-neu'() {
+    const name = await texteingabe('Neuer Ordner', '', 'Anlegen');
+    if (!name) return;
+    ordnerAnlegen(name);
+    toast('Ordner „' + name + '“ angelegt');
+    zeige();
+  },
+
+  async 'ordner-menue'(knopf) {
+    const ordner = ordnerMitId(knopf.dataset.id);
+    const { wert } = await dialog({
+      titel: ordner.name,
+      knoepfe: [
+        { text: 'Unterordner anlegen', wert: 'unterordner' },
+        { text: 'Umbenennen', wert: 'umbenennen' },
+        { text: 'Verschieben', wert: 'verschieben' },
+        { text: 'Löschen', wert: 'loeschen', art: 'gefahr' },
+        { text: 'Abbrechen', wert: null },
+      ],
+    });
+
+    if (wert === 'unterordner') {
+      const name = await texteingabe('Neuer Unterordner in „' + ordner.name + '“', '', 'Anlegen');
+      if (!name) return;
+      ordnerAnlegen(name, ordner.id);
+      toast('Ordner „' + name + '“ angelegt');
+      zeige();
+    }
+
+    if (wert === 'umbenennen') {
+      const name = await texteingabe('Ordner umbenennen', ordner.name, 'Speichern');
+      if (!name) return;
+      ordnerUmbenennen(ordner.id, name);
+      zeige();
+    }
+
+    if (wert === 'verschieben') {
+      const ziel = await ordnerWaehlen({
+        titel: 'Verschieben nach',
+        aktuell: ordner.elternId || OBERSTE_EBENE,
+        gesperrt: new Set([EINGANG_ID, ...ordnerUndUnterordnerIds(ordner.id)]),
+        obersteEbene: true,
+      });
+      if (!ziel) return;
+      const neuerElternId = ziel === OBERSTE_EBENE ? null : ziel;
+      if (neuerElternId === (ordner.elternId || null)) return;
+      ordnerVerschieben(ordner.id, neuerElternId);
+      toast('Ordner verschoben');
+      zeige();
+    }
+
+    if (wert === 'loeschen') await ordnerLoeschenFragen(ordner);
+  },
 };
+
+// Beim Löschen eines Ordners mit Inhalt nachfragen, wohin die Einträge sollen.
+async function ordnerLoeschenFragen(ordner) {
+  const anzahl = anzahlEintraege(ordner.id);
+  const anzahlUnterordner = ordnerUndUnterordnerIds(ordner.id).length - 1;
+  const unterordnerText = anzahlUnterordner
+    ? ` Auch ${anzahlUnterordner === 1 ? 'der Unterordner wird' : `die ${anzahlUnterordner} Unterordner werden`} gelöscht.`
+    : '';
+  let ziel = null;
+
+  if (anzahl === 0) {
+    const ok = await bestaetigen(`„${ordner.name}“ löschen?`, 'Der Ordner enthält keine Einträge.' + unterordnerText, 'Löschen', true);
+    if (!ok) return;
+  } else {
+    const eltern = ordnerMitId(ordner.elternId);
+    const knoepfe = [];
+    if (eltern) knoepfe.push({ text: `Einträge nach „${eltern.name}“ verschieben`, wert: eltern.id });
+    knoepfe.push({ text: 'Einträge in den Eingang verschieben', wert: EINGANG_ID });
+    knoepfe.push({ text: 'Einträge ebenfalls löschen', wert: 'mitloeschen', art: 'gefahr' });
+    knoepfe.push({ text: 'Abbrechen', wert: null });
+
+    const { wert } = await dialog({
+      titel: `„${ordner.name}“ löschen?`,
+      text: `Darin ${anzahl === 1 ? 'liegt 1 Eintrag' : `liegen ${anzahl} Einträge`}.${unterordnerText} Was soll mit den Einträgen passieren?`,
+      knoepfe,
+    });
+    if (!wert) return;
+    if (wert === 'mitloeschen') {
+      const ok = await bestaetigen('Wirklich alles löschen?',
+        `${anzahl === 1 ? '1 Eintrag wird' : `${anzahl} Einträge werden`} endgültig gelöscht.`, 'Endgültig löschen', true);
+      if (!ok) return;
+    } else {
+      ziel = wert;
+    }
+  }
+
+  const elternId = ordner.elternId;
+  ordnerLoeschen(ordner.id, ziel);
+  toast('Ordner gelöscht');
+  ersetze(elternId ? '#/ordner/' + elternId : '#/ordner');
+}
 
 // Ein einziger Klick-Abfänger für die ganze App:
 // data-aktion="..." führt eine Aktion aus, Links und data-link wechseln die Ansicht.

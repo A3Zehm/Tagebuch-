@@ -128,6 +128,48 @@ function ordnerListe(elternId = null, tiefe = 0, liste = []) {
   return liste;
 }
 
+function ordnerAnlegen(name, elternId = null) {
+  const ordner = { id: neueId(), name: name.trim(), elternId };
+  daten.ordner.push(ordner);
+  speichern();
+  return ordner;
+}
+
+function ordnerUmbenennen(id, name) {
+  const ordner = ordnerMitId(id);
+  if (!ordner || id === EINGANG_ID) return;
+  ordner.name = name.trim();
+  speichern();
+}
+
+// Nicht erlaubt: den Eingang verschieben, etwas in den Eingang legen,
+// oder einen Ordner in sich selbst bzw. in einen eigenen Unterordner legen.
+function ordnerVerschieben(id, neuerElternId) {
+  if (id === EINGANG_ID || neuerElternId === EINGANG_ID) return false;
+  if (neuerElternId && ordnerUndUnterordnerIds(id).includes(neuerElternId)) return false;
+  const ordner = ordnerMitId(id);
+  ordner.elternId = neuerElternId;
+  // ans Ende der Liste, damit er im neuen Ordner unten erscheint
+  daten.ordner.splice(daten.ordner.indexOf(ordner), 1);
+  daten.ordner.push(ordner);
+  speichern();
+  return true;
+}
+
+// Löscht den Ordner samt Unterordnern. Die Einträge darin wandern nach zielOrdnerId –
+// oder werden mitgelöscht, wenn zielOrdnerId null ist.
+function ordnerLoeschen(id, zielOrdnerId) {
+  if (id === EINGANG_ID) return;
+  const ids = new Set(ordnerUndUnterordnerIds(id));
+  if (zielOrdnerId) {
+    for (const e of daten.eintraege) if (ids.has(e.ordnerId)) e.ordnerId = zielOrdnerId;
+  } else {
+    daten.eintraege = daten.eintraege.filter(e => !ids.has(e.ordnerId));
+  }
+  daten.ordner = daten.ordner.filter(o => !ids.has(o.id));
+  speichern();
+}
+
 // ---------- Einträge ----------
 
 function neuesteZuerst(a, b) {
