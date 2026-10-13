@@ -208,19 +208,26 @@ function zurueck() {
 }
 
 function zeige() {
+  tagebuchSofortSpeichern();   // falls gerade im Tagebuch getippt wurde
+  offenerTag = null;
+
   const route = aktuelleRoute();
   const ansichten = {
     start: zeigeStart,
     ordner: zeigeOrdner,
     eintrag: zeigeEintrag,
     wichtig: zeigeWichtig,
+    tagebuch: zeigeTagebuch,
     suche: zeigeSuche,
     einstellungen: zeigeEinstellungen,
   };
   (ansichten[route.name] || zeigeStart)(route.id);
   gezeigteAdresse = location.hash;
 
-  const nav = { start: 'start', ordner: 'ordner', suche: 'suche', einstellungen: 'einstellungen' };
+  const nav = {
+    start: 'start', ordner: 'ordner', suche: 'suche', einstellungen: 'einstellungen',
+    tagebuch: 'tagebuch', kalender: 'tagebuch', tagebuchliste: 'tagebuch',
+  };
   document.querySelectorAll('.leiste a').forEach(a => {
     a.classList.toggle('aktiv', a.dataset.nav === nav[route.name]);
   });
@@ -238,6 +245,8 @@ function zeigeStart() {
   const unsortiert = eintraegeIn(EINGANG_ID).length;
   const wichtig = daten.eintraege.filter(e => e.wichtig).length;
   const neueste = neuesteEintraege(10);
+  const heute = tagebuchTag(heuteSchluessel());
+  const heuteStimmung = heute && stimmung(heute.stimmung);
 
   const hell = daten.thema === 'hell';
 
@@ -258,6 +267,10 @@ function zeigeStart() {
         <span class="zahl">${wichtig}</span>
         <span class="name">★ Wichtig</span>
         <span class="hinweis">markiert</span>
+      </a>
+      <a class="kachel breit" href="#/tagebuch">
+        <span class="name">${heuteStimmung ? heuteStimmung.emoji + ' ' : ''}Tagebuch heute</span>
+        <span class="hinweis">${heute && heute.text.trim() ? esc(tagVorschau(heute, 80)) : 'Noch nichts geschrieben – tippe hier, um loszulegen.'}</span>
       </a>
     </div>
     <h2 class="abschnitt">Zuletzt hinzugefügt</h2>
@@ -783,6 +796,7 @@ document.addEventListener('click', ereignis => {
 
 // ---------- Start ----------
 
+Object.assign(aktionen, tagebuchAktionen);   // Knöpfe aus tagebuch.js
 themaAnwenden();
 zeige();
 
