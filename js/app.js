@@ -172,6 +172,7 @@ function ordnerWaehlen({ titel, aktuell = null, gesperrt = new Set(), obersteEbe
 // ---------- Navigation ----------
 
 let gezeigteAdresse = null;
+let schritteInDerApp = 0;   // wie oft man "zurück" gehen kann, ohne die App zu verlassen
 
 function aktuelleRoute() {
   const teile = location.hash.replace(/^#\/?/, '').split('/');
@@ -181,7 +182,10 @@ function aktuelleRoute() {
 // Zu einer Adresse wechseln. Die Ansicht wird sofort gezeichnet
 // (wichtig fürs iPhone: nur so öffnet sich z. B. bei der Suche direkt die Tastatur).
 function gehe(adresse) {
-  if (location.hash !== adresse) history.pushState(null, '', adresse);
+  if (location.hash !== adresse) {
+    history.pushState(null, '', adresse);
+    schritteInDerApp++;
+  }
   zeige();
   window.scrollTo(0, 0);
 }
@@ -194,8 +198,8 @@ function ersetze(adresse) {
 }
 
 function zurueck() {
-  if (history.length > 1) history.back();
-  else gehe('#/');
+  if (schritteInDerApp > 0) history.back();
+  else ersetze('#/');
 }
 
 function zeige() {
@@ -203,6 +207,8 @@ function zeige() {
   const ansichten = {
     start: zeigeStart,
     ordner: zeigeOrdner,
+    eintrag: zeigeEintrag,
+    wichtig: zeigeWichtig,
   };
   (ansichten[route.name] || zeigeStart)(route.id);
   gezeigteAdresse = location.hash;
@@ -215,6 +221,7 @@ function zeige() {
 
 // Zurück-Wischen bzw. Zurück-Taste des Browsers
 window.addEventListener('popstate', () => {
+  schritteInDerApp = Math.max(0, schritteInDerApp - 1);
   if (location.hash !== gezeigteAdresse) zeige();
 });
 
@@ -285,6 +292,45 @@ function zeigeOrdnerUebersicht() {
     <div>${unterordner(null).map(ordnerZeile).join('')}</div>
     <button class="knopf gross abstand-oben" data-aktion="ordner-neu">+ Neuer Ordner</button>
     <p class="leise klein">Unterordner legst du im jeweiligen Ordner über den Knopf ${ICON_MEHR} oben rechts an.</p>`;
+}
+
+function zeigeEintrag(id) {
+  const eintrag = eintragMitId(id);
+  if (!eintrag) {
+    inhalt.innerHTML = `
+      <button class="zurueck" data-aktion="zurueck">‹ Zurück</button>
+      <p class="leer">Diesen Eintrag gibt es nicht mehr.</p>`;
+    return;
+  }
+  const knopfId = `data-id="${esc(eintrag.id)}"`;
+
+  inhalt.innerHTML = `
+    <button class="zurueck" data-aktion="zurueck">‹ Zurück</button>
+    <div><a class="ort-chip" href="#/ordner/${esc(eintrag.ordnerId)}">${esc(ordnerPfadText(eintrag.ordnerId))}</a></div>
+    <header class="kopf"><h1>${esc(eintragTitel(eintrag))}</h1></header>
+    <p class="volltext">${esc(eintrag.text)}</p>
+    <p class="meta">
+      ${eintrag.von ? `<span>von ${esc(eintrag.von)}</span>` : ''}
+      <span>erstellt ${datumText(eintrag.erstellt, true)}</span>
+      ${eintrag.geaendert !== eintrag.erstellt ? `<span>geändert ${datumText(eintrag.geaendert, true)}</span>` : ''}
+    </p>
+    <div class="knopf-reihe">
+      <button class="knopf ${eintrag.wichtig ? 'haupt' : ''}" data-aktion="wichtig" ${knopfId}>
+        ${eintrag.wichtig ? '★ Wichtig' : '☆ Wichtig'}
+      </button>
+      <button class="knopf" data-aktion="bearbeiten" ${knopfId}>Bearbeiten</button>
+      <button class="knopf" data-aktion="verschieben" ${knopfId}>Verschieben</button>
+      <button class="knopf gefahr" data-aktion="loeschen" ${knopfId}>Löschen</button>
+    </div>`;
+}
+
+function zeigeWichtig() {
+  const eintraege = wichtigeEintraege();
+  inhalt.innerHTML = `
+    <header class="kopf"><h1>★ Wichtig</h1></header>
+    ${eintraege.length
+      ? eintragListe(eintraege)
+      : '<p class="leer">Noch nichts markiert.<br>Öffne einen Eintrag und tippe auf <strong>☆ Wichtig</strong>.</p>'}`;
 }
 
 // ---------- Eingabe (Editor) ----------
@@ -432,6 +478,28 @@ const aktionen = {
     eintragAendern(eintrag.id, { ordnerId: ziel });
     toast('Verschoben nach „' + ordnerMitId(ziel).name + '“');
     zeige();
+  },
+
+  zurueck() {
+    zurueck();
+  },
+
+  wichtig(knopf) {
+    const istWichtig = wichtigUmschalten(knopf.dataset.id);
+    toast(istWichtig ? 'Als wichtig markiert' : 'Markierung entfernt');
+    zeige();
+  },
+
+  bearbeiten(knopf) {
+    editorOeffnen(eintragMitId(knopf.dataset.id));
+  },
+
+  async loeschen(knopf) {
+    const ok = await bestaetigen('Eintrag löschen?', 'Der Eintrag wird endgültig gelöscht.', 'Löschen', true);
+    if (!ok) return;
+    eintragLoeschen(knopf.dataset.id);
+    toast('Eintrag gelöscht');
+    zurueck();
   },
 
   async 'ordner-neu'() {

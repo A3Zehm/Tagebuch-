@@ -232,6 +232,22 @@ function eintragAendern(id, felder) {
   speichern();
 }
 
+function eintragLoeschen(id) {
+  daten.eintraege = daten.eintraege.filter(e => e.id !== id);
+  speichern();
+}
+
+function wichtigUmschalten(id) {
+  const eintrag = eintragMitId(id);
+  eintrag.wichtig = !eintrag.wichtig;
+  speichern();
+  return eintrag.wichtig;
+}
+
+function wichtigeEintraege() {
+  return daten.eintraege.filter(e => e.wichtig).sort(neuesteZuerst);
+}
+
 // Bereits benutzte Kollegen-Namen, die häufigsten zuerst.
 function vonNamen() {
   const anzahl = new Map();
