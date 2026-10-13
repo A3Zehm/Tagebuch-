@@ -297,6 +297,33 @@ function tagZeile(schluessel) {
     </a>`;
 }
 
+// ---------- Suchtreffer ----------
+
+// Karte für einen Tagebuch-Treffer: Schild, Datum, Stimmung und der Textausschnitt rund um den Treffer.
+function tagTrefferKarte(schluessel, anfrage) {
+  const tag = tagebuchTag(schluessel);
+  const st = stimmung(tag.stimmung);
+  return `
+    <a class="eintrag" href="#/tagebuch/${schluessel}">
+      <span class="schild tagebuch">📖 Tagebuch</span>
+      <h3><span class="titel">${esc(wochentag(schluessel))}, ${esc(kurzesDatum(schluessel))}</span>${st ? `<span title="${st.name}">${st.emoji}</span>` : ''}</h3>
+      <p class="vorschau">${esc(textAusschnitt(tag.text, anfrage)) || '<em>nur Stimmung</em>'}</p>
+    </a>`;
+}
+
+// Ein Stück Text rund um das erste gefundene Suchwort (statt immer nur den Anfang).
+function textAusschnitt(text, anfrage) {
+  const flach = text.replace(/\s+/g, ' ').trim();
+  const klein = flach.toLowerCase();
+  const stellen = anfrage.toLowerCase().split(/\s+/).filter(Boolean)
+    .map(b => klein.indexOf(b)).filter(i => i >= 0);
+  if (!stellen.length) return tagVorschau({ text: flach }, 140);
+  let start = Math.max(0, Math.min(...stellen) - 50);
+  if (start > 0) start = flach.indexOf(' ', start) + 1;   // nicht mitten im Wort anfangen
+  const stueck = flach.slice(start, start + 160);
+  return (start > 0 ? '… ' : '') + stueck + (start + 160 < flach.length ? ' …' : '');
+}
+
 // ---------- Aktionen ----------
 
 const tagebuchAktionen = {

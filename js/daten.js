@@ -312,6 +312,24 @@ function suchen(anfrage) {
   return { ordner, eintraege: treffer.map(t => t.eintrag) };
 }
 
+// Tagebuch-Tage durchsuchen: Text und Datum ("13.10.", "Oktober", "Montag" …).
+// Liefert die passenden Tage, neueste zuerst.
+function tagebuchSuchen(anfrage) {
+  const begriffe = normalisieren(anfrage).split(/\s+/).filter(Boolean);
+  if (!begriffe.length) return [];
+  return tagebuchTage().filter(schluessel => {
+    const datum = schluesselZuDatum(schluessel);
+    const datumText = normalisieren([
+      datum.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      datum.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' }),
+      datum.toLocaleDateString('de-DE', { weekday: 'long', month: 'long' }),
+      schluessel,
+    ].join(' '));
+    const text = normalisieren(daten.tage[schluessel].text);
+    return begriffe.every(b => passt(text, b) || passt(datumText, b));
+  });
+}
+
 // ---------- Backup ----------
 
 function backupDateiinhalt() {

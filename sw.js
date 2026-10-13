@@ -6,12 +6,13 @@
 // siehst du deshalb ab dem übernächsten Öffnen der App.
 // Deine Einträge sind davon nicht betroffen (die liegen im localStorage).
 
-const CACHE = 'tagebuch-v1';
+const CACHE = 'tagebuch-v2';
 const DATEIEN = [
   './',
   'index.html',
   'css/style.css',
   'js/daten.js',
+  'js/tagebuch.js',
   'js/app.js',
   'manifest.json',
   'icons/icon.svg',

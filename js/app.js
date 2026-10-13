@@ -48,9 +48,11 @@ function toast(nachricht) {
 
 // ---------- Bausteine für Listen ----------
 
-function eintragKarte(eintrag, { ort = true, einsortieren = false } = {}) {
+// art: true → Schild "Notiz" anzeigen (in der Suche, neben Tagebuch-Treffern)
+function eintragKarte(eintrag, { ort = true, einsortieren = false, art = false } = {}) {
   return `
     <article class="eintrag" data-link="#/eintrag/${esc(eintrag.id)}">
+      ${art ? '<span class="schild">Notiz</span>' : ''}
       <h3>
         <span class="titel ${eintrag.titel ? '' : 'gekuerzt'}">${esc(eintrag.titel || eintrag.text)}</span>
         ${eintrag.wichtig ? '<span class="stern" title="wichtig">★</span>' : ''}
@@ -393,14 +395,21 @@ function zeigeSuche() {
 function trefferZeigen() {
   const ziel = document.getElementById('treffer');
   if (!letzteSuche.trim()) {
-    ziel.innerHTML = '<p class="leise">Durchsucht Titel, Text, Kollegen und Ordnernamen – auch Kürzel wie „GAB“ oder „AM“.</p>';
+    ziel.innerHTML = '<p class="leise">Durchsucht Notizen (Titel, Text, Kollegen, Ordner – auch Kürzel wie „GAB“ oder „AM“) und das Tagebuch (Text und Datum, z. B. „13.10.“ oder „Oktober“).</p>';
     return;
   }
   const { ordner, eintraege } = suchen(letzteSuche);
-  ziel.innerHTML = `
+  const tage = tagebuchSuchen(letzteSuche);
+  const nichts = !ordner.length && !eintraege.length && !tage.length;
+
+  ziel.innerHTML = nichts ? '<p class="leer">Nichts gefunden.</p>' : `
     ${ordner.length ? `<h2 class="abschnitt">Ordner</h2><div>${ordner.map(ordnerZeile).join('')}</div>` : ''}
-    <h2 class="abschnitt">${eintraege.length} ${eintraege.length === 1 ? 'Eintrag' : 'Einträge'}</h2>
-    ${eintraege.length ? eintragListe(eintraege) : '<p class="leer">Nichts gefunden.</p>'}`;
+    ${eintraege.length ? `
+      <h2 class="abschnitt">${eintraege.length} ${eintraege.length === 1 ? 'Notiz' : 'Notizen'}</h2>
+      ${eintragListe(eintraege, { art: true })}` : ''}
+    ${tage.length ? `
+      <h2 class="abschnitt">${tage.length} ${tage.length === 1 ? 'Tag' : 'Tage'} im Tagebuch</h2>
+      <div class="liste">${tage.map(s => tagTrefferKarte(s, letzteSuche)).join('')}</div>` : ''}`;
 }
 
 function zeigeEinstellungen() {
