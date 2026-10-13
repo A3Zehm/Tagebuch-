@@ -225,6 +225,12 @@ h2.abschnitt {
 
 .eintrag h3 { display: flex; gap: 8px; margin: 0 0 4px; font-size: 17px; line-height: 1.35; }
 .eintrag h3 .titel { flex: 1; overflow-wrap: anywhere; }
+.eintrag h3 .titel.gekuerzt {   /* Eintrag ohne Titel: Text selbst, auf 3 Zeilen gekürzt */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 .vorschau {
   display: -webkit-box;

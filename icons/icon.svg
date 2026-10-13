@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- App-Icon: Vermessungspunkt (Dreieck mit Punkt) auf dunklem Grund -->
+  <rect width="512" height="512" fill="#0f1216"/>
+  <path d="M256 120 L392 360 H120 Z" fill="none" stroke="#ffc21a" stroke-width="34" stroke-linejoin="round"/>
+  <circle cx="256" cy="282" r="30" fill="#ffc21a"/>
+</svg>

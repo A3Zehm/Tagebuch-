@@ -51,8 +51,11 @@ function toast(nachricht) {
 function eintragKarte(eintrag, { ort = true, einsortieren = false } = {}) {
   return `
     <article class="eintrag" data-link="#/eintrag/${esc(eintrag.id)}">
-      <h3><span class="titel">${esc(eintragTitel(eintrag))}</span>${eintrag.wichtig ? '<span class="stern" title="wichtig">★</span>' : ''}</h3>
-      <p class="vorschau">${esc(eintrag.text)}</p>
+      <h3>
+        <span class="titel ${eintrag.titel ? '' : 'gekuerzt'}">${esc(eintrag.titel || eintrag.text)}</span>
+        ${eintrag.wichtig ? '<span class="stern" title="wichtig">★</span>' : ''}
+      </h3>
+      ${eintrag.titel ? `<p class="vorschau">${esc(eintrag.text)}</p>` : ''}
       <p class="meta">
         ${ort ? `<span class="ort">${esc(ordnerPfadText(eintrag.ordnerId))}</span>` : ''}
         ${eintrag.von ? `<span>von ${esc(eintrag.von)}</span>` : ''}
@@ -318,7 +321,7 @@ function zeigeEintrag(id) {
   inhalt.innerHTML = `
     <button class="zurueck" data-aktion="zurueck">‹ Zurück</button>
     <div><a class="ort-chip" href="#/ordner/${esc(eintrag.ordnerId)}">${esc(ordnerPfadText(eintrag.ordnerId))}</a></div>
-    <header class="kopf"><h1>${esc(eintragTitel(eintrag))}</h1></header>
+    ${eintrag.titel ? `<header class="kopf"><h1>${esc(eintrag.titel)}</h1></header>` : ''}
     <p class="volltext">${esc(eintrag.text)}</p>
     <p class="meta">
       ${eintrag.von ? `<span>von ${esc(eintrag.von)}</span>` : ''}
@@ -780,3 +783,8 @@ document.addEventListener('click', ereignis => {
 
 themaAnwenden();
 zeige();
+
+// Offline-Fähigkeit einschalten (siehe sw.js)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(fehler => console.warn('Service Worker:', fehler));
+}
